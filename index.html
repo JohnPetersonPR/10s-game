@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>10s Scorekeeper</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; padding: 20px; background: #f0f2f5; color: #1c1e21; }
+        .container, .game { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2, h3 { text-align: center; margin-top: 0; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccd0d5; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 14px; margin-top: 10px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .btn-primary { background: #0084ff; color: white; }
+        .btn-add { background: #28a745; color: white; }
+        .btn-undo { background: #606770; color: white; margin-top: 15px; }
+        .btn-resume { background: #ff9f00; color: white; margin-bottom: 20px; }
+        .btn-history { background: #f0f2f5; color: #1c1e21; border: 1px solid #ccd0d5; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border-bottom: 1px solid #ebedf0; padding: 10px; text-align: center; }
+        .total-row { font-weight: bold; background: #f0f7ff; }
+        .winner-banner { background: #d4edda; color: #155724; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; font-weight: bold; }
+        .hidden { display: none; }
+        .history-list { list-style: none; padding: 0; font-size: 14px; }
+        .history-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; }
+    </style>
+</head>
+<body>
+
+<div id="resume-box" class="container hidden">
+    <h3 style="margin-bottom:10px;">Unfinished Game Found</h3>
+    <p style="font-size:14px; text-align:center; color:#65676b;">Would you like to continue your last game?</p>
+    <button class="btn-resume" onclick="resumeGame()">Resume Last Game</button>
+    <button onclick="clearCurrentGame()" style="background:none; color:#dc3545; width:100%; font-size:14px;">Start New Game Instead</button>
+</div>
+
+<div id="setup" class="container">
+    <h2>10s Setup</h2>
+    <div id="player-inputs">
+        <input type="text" placeholder="Player 1" class="p-name">
+        <input type="text" placeholder="Player 2" class="p-name">
+    </div>
+    <button onclick="addPlayerField()" style="background:#e4e6eb;">+ Add Player</button>
+    <button class="btn-primary" onclick="startGame()">Start Game</button>
+</div>
+
+<div id="game" class="container hidden">
+    <div id="winner-display" class="hidden"></div>
+    <h3 id="scoreboard-title">Scoreboard</h3>
+    <table>
+        <thead id="table-head"></thead>
+        <tbody id="table-body"></tbody>
+        <tfoot id="table-foot" class="total-row"></tfoot>
+    </table>
+    
+    <div id="input-area" style="background: #f5f6f7; padding: 15px; border-radius: 8px;">
+        <div id="fields-container"></div>
+        <button class="btn-add" onclick="submitRound()">Submit Round</button>
+    </div>
+
+    <button id="undo-btn" class="btn-undo hidden" onclick="undoLastRound()">↩ Undo Last Round</button>
+    <button onclick="confirmReset()" style="background:none; color:#dc3545; margin-top: 30px; font-size:14px;">Reset Game</button>
+</div>
+
+<div class="container">
+    <button class="btn-history" onclick="toggleHistory()">📜 View Game History</button>
+    <div id="history-section" class="hidden">
+        <h3>Recent Winners</h3>
+        <ul id="history-list" class="history-list"></ul>
+    </div>
+</div>
+
+<script>
+    let players = [];
+    let rounds = [];
+
+    window.onload = function() {
+        loadHistory();
+        if (localStorage.getItem('tensCurrentGame')) {
+            document.getElementById('resume-box').classList.remove('hidden');
+        }
+    };
+
+    function addPlayerField() {
+        const container = document.getElementById('player-inputs');
+        if (container.querySelectorAll('input').length < 6) {
+            const input = document.createElement('input');
+            input.className = 'p-name';
+            input.placeholder = `Player ${container.querySelectorAll('input').length + 1}`;
+            container.appendChild(input);
+        }
+    }
+
+    function startGame() {
+        const inputs = document.querySelectorAll('.p-name');
+        players = Array.from(inputs).map(i => i.value.trim()).filter(v => v !== "");
+        if (players.length < 2) return alert("Need at least 2 players.");
+        setupGameUI();
+    }
+
+    function setupGameUI() {
+        document.getElementById('setup').classList.add('hidden');
+        document.getElementById('resume-box').classList.add('hidden');
+        document.getElementById('game').classList.remove('hidden');
+
+        let headHtml = '<tr>';
+        players.forEach(p => headHtml += `<th>${p}</th>`);
+        document.getElementById('table-head').innerHTML = headHtml + '</tr>';
+
+        let fieldsHtml = '';
+        players.forEach((p, i) => {
+            fieldsHtml += `<div style="margin-bottom:8px;"><label style="font-size:12px;">${p}</label>
+                           <input type="number" class="score-input" data-idx="${i}" inputmode="numeric"></div>`;
+        });
+        document.getElementById('fields-container').innerHTML = fieldsHtml;
+        render();
+    }
+
+    function submitRound() {
+        const inputs = document.querySelectorAll('.score-input');
+        let currentRound = Array.from(inputs).map(input => parseInt(input.value) || 0);
+        inputs.forEach(input => input.value = '');
+        rounds.push(currentRound);
+        saveCurrentGame();
+        render();
+    }
+
+    function undoLastRound() {
+        if (rounds.length > 0) {
+            rounds.pop();
+            saveCurrentGame();
+            render();
+        }
+    }
+
+    function render() {
+        const body = document.getElementById('table-body');
+        const foot = document.getElementById('table-foot');
+        const winnerDisplay = document.getElementById('winner-display');
+        const inputArea = document.getElementById('input-area');
+        
+        body.innerHTML = '';
+        let totals = new Array(players.length).fill(0);
+
+        rounds.forEach(round => {
+            let row = '<tr>';
+            round.forEach((val, i) => { row += `<td>${val}</td>`; totals[i] += val; });
+            body.innerHTML += row + '</tr>';
+        });
+
+        let footHtml = '<tr>';
+        totals.forEach(t => footHtml += `<td>${t}</td>`);
+        foot.innerHTML = footHtml + '</tr>';
+
+        rounds.length > 0 ? document.getElementById('undo-btn').classList.remove('hidden') : document.getElementById('undo-btn').classList.add('hidden');
+
+        if (totals.some(t => t >= 500)) {
+            const winnerIdx = totals.indexOf(Math.min(...totals));
+            const winnerName = players[winnerIdx];
+            winnerDisplay.innerHTML = `🏆 Winner: ${winnerName} (${totals[winnerIdx]} pts)`;
+            winnerDisplay.classList.remove('hidden');
+            winnerDisplay.className = 'winner-banner';
+            inputArea.classList.add('hidden');
+            saveToHistory(winnerName, totals[winnerIdx]);
+            localStorage.removeItem('tensCurrentGame'); // Clear auto-save once finished
+        } else {
+            winnerDisplay.classList.add('hidden');
+            inputArea.classList.remove('hidden');
+        }
+    }
+
+    function saveCurrentGame() {
+        const gameState = { players, rounds };
+        localStorage.setItem('tensCurrentGame', JSON.stringify(gameState));
+    }
+
+    function resumeGame() {
+        const saved = JSON.parse(localStorage.getItem('tensCurrentGame'));
+        if (saved) {
+            players = saved.players;
+            rounds = saved.rounds;
+            setupGameUI();
+        }
+    }
+
+    function clearCurrentGame() {
+        localStorage.removeItem('tensCurrentGame');
+        document.getElementById('resume-box').classList.add('hidden');
+    }
+
+    function saveToHistory(name, score) {
+        let history = JSON.parse(localStorage.getItem('tensHistory') || "[]");
+        const entry = { name, score, date: new Date().toLocaleDateString() };
+        if (history.length > 0 && history[0].name === entry.name && history[0].score === entry.score) return;
+        history.unshift(entry);
+        localStorage.setItem('tensHistory', JSON.stringify(history.slice(0, 10)));
+        loadHistory();
+    }
+
+    function loadHistory() {
+        const list = document.getElementById('history-list');
+        let history = JSON.parse(localStorage.getItem('tensHistory') || "[]");
+        list.innerHTML = history.length ? history.map(h => `<li class="history-item"><span><strong>${h.name}</strong> (${h.score})</span> <span style="color:#999">${h.date}</span></li>`).join('') : '<li class="history-item">No games played yet.</li>';
+    }
+
+    function toggleHistory() {
+        document.getElementById('history-section').classList.toggle('hidden');
+    }
+
+    function confirmReset() {
+        if (confirm("Reset current game? This cannot be undone.")) {
+            localStorage.removeItem('tensCurrentGame');
+            location.reload();
+        }
+    }
+</script>
+</body>
+</html>
