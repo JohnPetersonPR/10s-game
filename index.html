@@ -7,7 +7,13 @@
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="icon" type="image/png" href="icon.png">
 
-<style>
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://johnpetersonpr.github.io/10s-game/">
+<meta property="og:title" content="Tens Scoresheet">
+<meta property="og:description" content="A simple, custom scorekeeper for your Tens card games.">
+<meta property="og:image" content="https://johnpetersonpr.github.io/10s-game/icon.png?v=2">
+
+    <style>
         :root {
             --bg-color: #f0f2f5;
             --card-bg: #ffffff;
@@ -41,67 +47,37 @@
         h2, h3 { text-align: center; margin-top: 0; font-size: 1.2rem; }
         
         input { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box; font-size: 16px; background: var(--input-bg); color: var(--text-main); }
-        button { width: 100%; padding: 12px; margin-top: 8px; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; }
+        button { width: 100%; padding: 12px; margin-top: 8px; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; transition: opacity 0.2s; }
         
         .btn-primary { background: #0084ff; color: white; }
         .btn-add { background: #28a745; color: white; }
         .btn-undo { background: #606770; color: white; margin-top: 10px; padding: 8px; font-size: 13px; }
         .btn-theme { width: auto; padding: 6px 10px; font-size: 11px; float: right; background: var(--btn-ghost); color: var(--btn-ghost-text); }
         
-        /* Table Layout Improvements */
         .table-wrapper { 
             width: 100%; 
-            max-height: 350px; /* Limits height so input stays on screen */
+            max-height: 300px; 
             overflow-y: auto; 
-            margin-bottom: 0;
-            border-bottom: 1px solid var(--border);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--card-bg);
         } 
         table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
-        th, td { padding: 8px 2px; text-align: center; font-size: 13px; border-bottom: 1px solid var(--table-row); }
+        th, td { padding: 10px 4px; text-align: center; font-size: 13px; border-bottom: 1px solid var(--table-row); }
         
-        /* Sticky Header */
-        thead th { 
-            position: sticky; 
-            top: 0; 
-            background: var(--card-bg); 
-            z-index: 10; 
-            color: var(--text-sub); 
-            text-transform: uppercase; 
-            font-size: 10px;
-        }
-
-        /* Sticky Footer (Totals) */
-        tfoot td { 
-            position: sticky; 
-            bottom: 0; 
-            background: var(--total-bg); 
-            z-index: 10; 
-            font-weight: bold; 
-            border-top: 2px solid var(--border);
-        }
+        thead th { position: sticky; top: 0; background: var(--card-bg); z-index: 10; color: var(--text-sub); text-transform: uppercase; font-size: 10px; border-bottom: 2px solid var(--border); }
+        tfoot td { position: sticky; bottom: 0; background: var(--total-bg); z-index: 10; font-weight: bold; border-top: 2px solid var(--border); border-bottom: none; }
         
         .winner-banner { background: #d4edda; color: #155724; padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 15px; font-weight: bold; }
         .leading-player { color: var(--leader-color) !important; font-weight: bold; }
 
-        #fields-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(65px, 1fr)); gap: 8px; margin-bottom: 10px; }
+        #fields-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 8px; margin-bottom: 10px; }
         .score-input-group { display: flex; flex-direction: column; align-items: center; }
-        .score-input-group label { font-size: 10px; color: var(--text-sub); margin-bottom: 2px; text-align: center; width: 100%; overflow: hidden; text-overflow: ellipsis; }
+        .score-input-group label { font-size: 10px; color: var(--text-sub); margin-bottom: 2px; }
 
-        .score-change {
-            position: absolute;
-            top: -15px;
-            right: 0;
-            color: #dc3545;
-            font-weight: bold;
-            font-size: 12px;
-            animation: floatUp 1.2s forwards;
-            pointer-events: none;
-        }
-
-        @keyframes floatUp {
-            0% { opacity: 1; transform: translateY(0); }
-            100% { opacity: 0; transform: translateY(-20px); }
-        }
+        .score-change { position: absolute; top: -15px; right: 0; color: #dc3545; font-weight: bold; font-size: 12px; animation: floatUp 1.2s forwards; pointer-events: none; }
+        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-20px); } }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
@@ -129,7 +105,7 @@
     <div id="winner-display" class="hidden"></div>
     <button id="share-btn" class="btn-primary hidden" onclick="shareResults()" style="margin-bottom:15px;">📲 Copy Results</button>
     
-    <div class="table-wrapper">
+    <div class="table-wrapper" id="scroll-wrapper">
         <table>
             <thead id="table-head"></thead>
             <tbody id="table-body"></tbody>
@@ -179,11 +155,10 @@
 
     function addPlayerField() {
         const container = document.getElementById('player-inputs');
-        const count = container.querySelectorAll('input').length;
-        if (count < 8) {
+        if (container.querySelectorAll('input').length < 8) {
             const input = document.createElement('input');
             input.className = 'p-name';
-            input.placeholder = `Player ${count + 1}`;
+            input.placeholder = `Player ${container.querySelectorAll('input').length + 1}`;
             container.appendChild(input);
         }
     }
@@ -252,11 +227,8 @@
         players.forEach((_, i) => {
             const header = document.getElementById(`header-p${i}`);
             if (header) {
-                if (totals[i] === minTotal && rounds.length > 0) {
-                    header.classList.add('leading-player');
-                } else {
-                    header.classList.remove('leading-player');
-                }
+                if (totals[i] === minTotal && rounds.length > 0) header.classList.add('leading-player');
+                else header.classList.remove('leading-player');
             }
         });
 
@@ -279,8 +251,7 @@
             shareBtn.classList.add('hidden');
         }
         
-        // Auto-scroll table to the bottom when new rounds are added
-        const wrapper = document.querySelector('.table-wrapper');
+        const wrapper = document.getElementById('scroll-wrapper');
         wrapper.scrollTop = wrapper.scrollHeight;
     }
 
