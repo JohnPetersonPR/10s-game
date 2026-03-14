@@ -14,13 +14,13 @@
 <meta property="og:url" content="https://johnpetersonpr.github.io/10s-game/">
 <meta property="og:title" content="Tens Scoresheet">
 <meta property="og:description" content="A simple, custom scorekeeper for your Tens card games.">
-<meta property="og:image" content="https://johnpetersonpr.github.io/10s-game/icon.png">
+<meta property="og:image" content="https://johnpetersonpr.github.io/10s-game/icon.png?v=1">
 
 <meta name="twitter:card" content="summary">
 <meta name="twitter:url" content="https://johnpetersonpr.github.io/10s-game/">
 <meta name="twitter:title" content="Tens Scoresheet">
 <meta name="twitter:description" content="A simple, custom scorekeeper for your Tens card games.">
-<meta name="twitter:image" content="https://johnpetersonpr.github.io/10s-game/icon.png">
+<meta name="twitter:image" content="https://johnpetersonpr.github.io/10s-game/icon.png?v=1">
 
     <style>
         :root {
@@ -177,6 +177,9 @@
     }
 
     function submitRound() {
+        // Light haptic feedback for button press
+        if (navigator.vibrate) navigator.vibrate(40);
+
         const inputs = document.querySelectorAll('.score-input');
         let currentRound = Array.from(inputs).map(input => parseInt(input.value) || 0);
         inputs.forEach(input => input.value = '');
@@ -204,6 +207,9 @@
         rounds.length > 0 ? document.getElementById('undo-btn').classList.remove('hidden') : document.getElementById('undo-btn').classList.add('hidden');
 
         if (totals.some(t => t >= 500)) {
+            // Success vibration pattern: short-gap-short-gap-long
+            if (navigator.vibrate) navigator.vibrate([100, 30, 100, 30, 300]);
+
             const winnerIdx = totals.indexOf(Math.min(...totals));
             winnerDisplay.innerHTML = `🏆 Winner: ${players[winnerIdx]} (${totals[winnerIdx]} pts)`;
             winnerDisplay.classList.remove('hidden');
