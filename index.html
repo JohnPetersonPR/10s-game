@@ -34,6 +34,7 @@
             --input-bg: #ffffff;
             --table-row: #ebedf0;
             --total-bg: #f0f7ff;
+            --leader-color: #28a745;
         }
 
         [data-theme="dark"] {
@@ -47,6 +48,7 @@
             --input-bg: #3a3b3c;
             --table-row: #3e4042;
             --total-bg: #2d333b;
+            --leader-color: #2ecc71;
         }
 
         body { font-family: -apple-system, sans-serif; padding: 20px; background: var(--bg-color); color: var(--text-main); transition: background 0.3s ease; }
@@ -64,7 +66,7 @@
         .table-wrapper { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; margin: 20px 0; min-width: 400px; }
         th, td { border-bottom: 1px solid var(--table-row); padding: 10px; text-align: center; font-size: 14px; }
-        th { color: var(--text-sub); text-transform: uppercase; font-size: 10px; }
+        th { color: var(--text-sub); text-transform: uppercase; font-size: 10px; position: relative; }
         .total-row { font-weight: bold; background: var(--total-bg); }
         
         .winner-banner { background: #d4edda; color: #155724; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; font-weight: bold; }
@@ -72,6 +74,24 @@
 
         .hidden { display: none; }
         .history-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid var(--border); font-size: 14px; }
+        .leading-player { color: var(--leader-color) !important; font-weight: bold; }
+
+        /* Score Indicator Animation */
+        .score-change {
+            position: absolute;
+            top: -10px;
+            right: 0;
+            color: #dc3545;
+            font-weight: bold;
+            font-size: 14px;
+            animation: floatUp 1.5s forwards;
+            pointer-events: none;
+        }
+
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-30px); }
+        }
     </style>
 </head>
 <body>
@@ -97,6 +117,7 @@
 
 <div id="game" class="container hidden">
     <div id="winner-display" class="hidden"></div>
+    <button id="share-btn" class="btn-primary hidden" onclick="shareResults()" style="margin-bottom:20px;">📲 Copy Results for Group Chat</button>
     <h3 id="scoreboard-title">Scoreboard</h3>
     <div class="table-wrapper">
         <table>
@@ -126,12 +147,12 @@
 <script>
     let players = [];
     let rounds = [];
+    const winSound = new Audio('https://actions.google.com/sounds/v1/cartoon/clime_up_the_staircase.ogg');
 
     window.onload = function() {
         const savedTheme = localStorage.getItem('theme') || 'light';
         document.documentElement.setAttribute('data-theme', savedTheme);
         document.getElementById('theme-btn').innerText = savedTheme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
-        
         loadHistory();
         if (localStorage.getItem('tensCurrentGame')) {
             document.getElementById('resume-box').classList.remove('hidden');
@@ -168,8 +189,7 @@
         document.getElementById('setup').classList.add('hidden');
         document.getElementById('resume-box').classList.add('hidden');
         document.getElementById('game').classList.remove('hidden');
-
-        document.getElementById('table-head').innerHTML = '<tr>' + players.map(p => `<th>${p}</th>`).join('') + '</tr>';
+        document.getElementById('table-head').innerHTML = '<tr>' + players.map((p, i) => `<th id="header-p${i}">${p}</th>`).join('') + '</tr>';
         document.getElementById('fields-container').innerHTML = players.map((p, i) => `
             <div><label style="font-size:11px; color:var(--text-sub);">${p}</label>
             <input type="number" class="score-input" data-idx="${i}" inputmode="numeric"></div>`).join('');
@@ -177,15 +197,29 @@
     }
 
     function submitRound() {
-        // Light haptic feedback for button press
         if (navigator.vibrate) navigator.vibrate(40);
-
         const inputs = document.querySelectorAll('.score-input');
-        let currentRound = Array.from(inputs).map(input => parseInt(input.value) || 0);
+        let currentRound = Array.from(inputs).map(input => {
+            const val = parseInt(input.value) || 0;
+            // Show floating indicator
+            if (val !== 0) {
+                showFloatingScore(input.getAttribute('data-idx'), val);
+            }
+            return val;
+        });
         inputs.forEach(input => input.value = '');
         rounds.push(currentRound);
         saveCurrentGame();
         render();
+    }
+
+    function showFloatingScore(idx, val) {
+        const th = document.getElementById(`header-p${idx}`);
+        const indicator = document.createElement('span');
+        indicator.className = 'score-change';
+        indicator.innerText = `+${val}`;
+        th.appendChild(indicator);
+        setTimeout(() => indicator.remove(), 1500);
     }
 
     function undoLastRound() {
@@ -197,6 +231,7 @@
         const foot = document.getElementById('table-foot');
         const winnerDisplay = document.getElementById('winner-display');
         const inputArea = document.getElementById('input-area');
+        const shareBtn = document.getElementById('share-btn');
         
         body.innerHTML = rounds.map(round => `<tr>${round.map(val => `<td>${val}</td>`).join('')}</tr>`).join('');
 
@@ -204,23 +239,55 @@
         rounds.forEach(r => r.forEach((v, i) => totals[i] += v));
         foot.innerHTML = `<tr>${totals.map(t => `<td>${t}</td>`).join('')}</tr>`;
 
+        const minTotal = Math.min(...totals);
+        players.forEach((_, i) => {
+            const header = document.getElementById(`header-p${i}`);
+            if (header) {
+                if (totals[i] === minTotal && rounds.length > 0) {
+                    header.classList.add('leading-player');
+                } else {
+                    header.classList.remove('leading-player');
+                }
+            }
+        });
+
         rounds.length > 0 ? document.getElementById('undo-btn').classList.remove('hidden') : document.getElementById('undo-btn').classList.add('hidden');
 
         if (totals.some(t => t >= 500)) {
-            // Success vibration pattern: short-gap-short-gap-long
             if (navigator.vibrate) navigator.vibrate([100, 30, 100, 30, 300]);
-
+            winSound.play();
             const winnerIdx = totals.indexOf(Math.min(...totals));
             winnerDisplay.innerHTML = `🏆 Winner: ${players[winnerIdx]} (${totals[winnerIdx]} pts)`;
             winnerDisplay.classList.remove('hidden');
             winnerDisplay.className = 'winner-banner';
             inputArea.classList.add('hidden');
+            shareBtn.classList.remove('hidden');
             saveToHistory(players[winnerIdx], totals[winnerIdx]);
             localStorage.removeItem('tensCurrentGame');
         } else {
             winnerDisplay.classList.add('hidden');
             inputArea.classList.remove('hidden');
+            shareBtn.classList.add('hidden');
         }
+    }
+
+    function shareResults() {
+        let totals = new Array(players.length).fill(0);
+        rounds.forEach(r => r.forEach((v, i) => totals[i] += v));
+        
+        let shareText = "🏆 Tens Game Results\n\n";
+        players.forEach((p, i) => {
+            let status = totals[i] >= 500 ? "💥 BUST" : "";
+            shareText += `${i === totals.indexOf(Math.min(...totals)) ? '👑' : '▪️'} ${p}: ${totals[i]} ${status}\n`;
+        });
+        shareText += "\nPlayed on Tens Scoresheet";
+
+        navigator.clipboard.writeText(shareText).then(() => {
+            const btn = document.getElementById('share-btn');
+            const originalText = btn.innerText;
+            btn.innerText = "✅ Copied to Clipboard!";
+            setTimeout(() => btn.innerText = originalText, 2000);
+        });
     }
 
     function saveCurrentGame() { localStorage.setItem('tensCurrentGame', JSON.stringify({ players, rounds })); }
