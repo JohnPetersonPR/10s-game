@@ -4,68 +4,110 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>10s Scorekeeper</title>
+    
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="icon" type="image/png" href="icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     <style>
-        body { font-family: -apple-system, sans-serif; padding: 20px; background: #f0f2f5; color: #1c1e21; }
-        .container, .game { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        :root {
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --text-main: #1c1e21;
+            --text-sub: #606770;
+            --border: #ccd0d5;
+            --btn-ghost: #e4e6eb;
+            --btn-ghost-text: #050505;
+            --input-bg: #ffffff;
+            --table-row: #ebedf0;
+            --total-bg: #f0f7ff;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #18191a;
+            --card-bg: #242526;
+            --text-main: #e4e6eb;
+            --text-sub: #b0b3b8;
+            --border: #3e4042;
+            --btn-ghost: #3a3b3c;
+            --btn-ghost-text: #e4e6eb;
+            --input-bg: #3a3b3c;
+            --table-row: #3e4042;
+            --total-bg: #2d333b;
+        }
+
+        body { font-family: -apple-system, sans-serif; padding: 20px; background: var(--bg-color); color: var(--text-main); transition: background 0.3s ease; }
+        .container { max-width: 600px; margin: auto; background: var(--card-bg); padding: 20px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); margin-bottom: 20px; }
         h2, h3 { text-align: center; margin-top: 0; }
-        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccd0d5; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box; font-size: 16px; background: var(--input-bg); color: var(--text-main); }
         button { width: 100%; padding: 14px; margin-top: 10px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        
         .btn-primary { background: #0084ff; color: white; }
         .btn-add { background: #28a745; color: white; }
         .btn-undo { background: #606770; color: white; margin-top: 15px; }
-        .btn-resume { background: #ff9f00; color: white; margin-bottom: 20px; }
-        .btn-history { background: #f0f2f5; color: #1c1e21; border: 1px solid #ccd0d5; margin-top: 20px; }
-        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        th, td { border-bottom: 1px solid #ebedf0; padding: 10px; text-align: center; }
-        .total-row { font-weight: bold; background: #f0f7ff; }
+        .btn-theme { width: auto; padding: 8px 12px; font-size: 12px; float: right; background: var(--btn-ghost); color: var(--btn-ghost-text); }
+        
+        .table-wrapper { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; min-width: 400px; }
+        th, td { border-bottom: 1px solid var(--table-row); padding: 10px; text-align: center; font-size: 14px; }
+        th { color: var(--text-sub); text-transform: uppercase; font-size: 10px; }
+        .total-row { font-weight: bold; background: var(--total-bg); }
+        
         .winner-banner { background: #d4edda; color: #155724; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; font-weight: bold; }
+        [data-theme="dark"] .winner-banner { background: #1b4721; color: #d4edda; }
+
         .hidden { display: none; }
-        .history-list { list-style: none; padding: 0; font-size: 14px; }
-        .history-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; }
+        .history-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid var(--border); font-size: 14px; }
     </style>
 </head>
 <body>
 
+<button class="btn-theme" onclick="toggleTheme()" id="theme-btn">🌙 Dark Mode</button>
+<div style="clear:both;"></div>
+
 <div id="resume-box" class="container hidden">
-    <h3 style="margin-bottom:10px;">Unfinished Game Found</h3>
-    <p style="font-size:14px; text-align:center; color:#65676b;">Would you like to continue your last game?</p>
-    <button class="btn-resume" onclick="resumeGame()">Resume Last Game</button>
-    <button onclick="clearCurrentGame()" style="background:none; color:#dc3545; width:100%; font-size:14px;">Start New Game Instead</button>
+    <h3>Unfinished Game</h3>
+    <button class="btn-primary" style="background:#ff9f00;" onclick="resumeGame()">Resume Last Game</button>
+    <button onclick="clearCurrentGame()" style="background:none; color:#dc3545; width:100%; font-size:14px;">Start Fresh</button>
 </div>
 
 <div id="setup" class="container">
-    <h2>Tens New Game Creation</h2>
+    <h2>10s Setup</h2>
     <div id="player-inputs">
         <input type="text" placeholder="Player 1" class="p-name">
         <input type="text" placeholder="Player 2" class="p-name">
     </div>
-    <button onclick="addPlayerField()" style="background:#e4e6eb;">+ Add Player</button>
+    <button onclick="addPlayerField()" style="background:var(--btn-ghost); color: var(--btn-ghost-text);">+ Add Player (Max 8)</button>
     <button class="btn-primary" onclick="startGame()">Start Game</button>
 </div>
 
 <div id="game" class="container hidden">
     <div id="winner-display" class="hidden"></div>
     <h3 id="scoreboard-title">Scoreboard</h3>
-    <table>
-        <thead id="table-head"></thead>
-        <tbody id="table-body"></tbody>
-        <tfoot id="table-foot" class="total-row"></tfoot>
-    </table>
+    <div class="table-wrapper">
+        <table>
+            <thead id="table-head"></thead>
+            <tbody id="table-body"></tbody>
+            <tfoot id="table-foot" class="total-row"></tfoot>
+        </table>
+    </div>
     
-    <div id="input-area" style="background: #f5f6f7; padding: 15px; border-radius: 8px;">
-        <div id="fields-container"></div>
+    <div id="input-area" style="background: var(--bg-color); padding: 15px; border-radius: 8px;">
+        <div id="fields-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;"></div>
         <button class="btn-add" onclick="submitRound()">Submit Round</button>
     </div>
 
     <button id="undo-btn" class="btn-undo hidden" onclick="undoLastRound()">↩ Undo Last Round</button>
-    <button onclick="confirmReset()" style="background:none; color:#dc3545; margin-top: 30px; font-size:14px;">Reset Game</button>
+    <button onclick="confirmReset()" style="background:none; color:#dc3545; margin-top: 30px; font-size:14px; width:100%;">Reset Game</button>
 </div>
 
 <div class="container">
-    <button class="btn-history" onclick="toggleHistory()">📜 View Game History</button>
+    <button class="btn-theme" style="width:100%; float:none;" onclick="toggleHistory()">📜 View Game History</button>
     <div id="history-section" class="hidden">
         <h3>Recent Winners</h3>
-        <ul id="history-list" class="history-list"></ul>
+        <ul id="history-list" style="padding:0; list-style:none;"></ul>
     </div>
 </div>
 
@@ -74,18 +116,31 @@
     let rounds = [];
 
     window.onload = function() {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        document.getElementById('theme-btn').innerText = savedTheme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
+        
         loadHistory();
         if (localStorage.getItem('tensCurrentGame')) {
             document.getElementById('resume-box').classList.remove('hidden');
         }
     };
 
+    function toggleTheme() {
+        const current = document.documentElement.getAttribute('data-theme');
+        const next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+        document.getElementById('theme-btn').innerText = next === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
+    }
+
     function addPlayerField() {
         const container = document.getElementById('player-inputs');
-        if (container.querySelectorAll('input').length < 6) {
+        const count = container.querySelectorAll('input').length;
+        if (count < 8) {
             const input = document.createElement('input');
             input.className = 'p-name';
-            input.placeholder = `Player ${container.querySelectorAll('input').length + 1}`;
+            input.placeholder = `Player ${count + 1}`;
             container.appendChild(input);
         }
     }
@@ -102,16 +157,10 @@
         document.getElementById('resume-box').classList.add('hidden');
         document.getElementById('game').classList.remove('hidden');
 
-        let headHtml = '<tr>';
-        players.forEach(p => headHtml += `<th>${p}</th>`);
-        document.getElementById('table-head').innerHTML = headHtml + '</tr>';
-
-        let fieldsHtml = '';
-        players.forEach((p, i) => {
-            fieldsHtml += `<div style="margin-bottom:8px;"><label style="font-size:12px;">${p}</label>
-                           <input type="number" class="score-input" data-idx="${i}" inputmode="numeric"></div>`;
-        });
-        document.getElementById('fields-container').innerHTML = fieldsHtml;
+        document.getElementById('table-head').innerHTML = '<tr>' + players.map(p => `<th>${p}</th>`).join('') + '</tr>';
+        document.getElementById('fields-container').innerHTML = players.map((p, i) => `
+            <div><label style="font-size:11px; color:var(--text-sub);">${p}</label>
+            <input type="number" class="score-input" data-idx="${i}" inputmode="numeric"></div>`).join('');
         render();
     }
 
@@ -125,11 +174,7 @@
     }
 
     function undoLastRound() {
-        if (rounds.length > 0) {
-            rounds.pop();
-            saveCurrentGame();
-            render();
-        }
+        if (rounds.length > 0) { rounds.pop(); saveCurrentGame(); render(); }
     }
 
     function render() {
@@ -138,54 +183,31 @@
         const winnerDisplay = document.getElementById('winner-display');
         const inputArea = document.getElementById('input-area');
         
-        body.innerHTML = '';
+        body.innerHTML = rounds.map(round => `<tr>${round.map(val => `<td>${val}</td>`).join('')}</tr>`).join('');
+
         let totals = new Array(players.length).fill(0);
-
-        rounds.forEach(round => {
-            let row = '<tr>';
-            round.forEach((val, i) => { row += `<td>${val}</td>`; totals[i] += val; });
-            body.innerHTML += row + '</tr>';
-        });
-
-        let footHtml = '<tr>';
-        totals.forEach(t => footHtml += `<td>${t}</td>`);
-        foot.innerHTML = footHtml + '</tr>';
+        rounds.forEach(r => r.forEach((v, i) => totals[i] += v));
+        foot.innerHTML = `<tr>${totals.map(t => `<td>${t}</td>`).join('')}</tr>`;
 
         rounds.length > 0 ? document.getElementById('undo-btn').classList.remove('hidden') : document.getElementById('undo-btn').classList.add('hidden');
 
         if (totals.some(t => t >= 500)) {
             const winnerIdx = totals.indexOf(Math.min(...totals));
-            const winnerName = players[winnerIdx];
-            winnerDisplay.innerHTML = `🏆 Winner: ${winnerName} (${totals[winnerIdx]} pts)`;
+            winnerDisplay.innerHTML = `🏆 Winner: ${players[winnerIdx]} (${totals[winnerIdx]} pts)`;
             winnerDisplay.classList.remove('hidden');
             winnerDisplay.className = 'winner-banner';
             inputArea.classList.add('hidden');
-            saveToHistory(winnerName, totals[winnerIdx]);
-            localStorage.removeItem('tensCurrentGame'); // Clear auto-save once finished
+            saveToHistory(players[winnerIdx], totals[winnerIdx]);
+            localStorage.removeItem('tensCurrentGame');
         } else {
             winnerDisplay.classList.add('hidden');
             inputArea.classList.remove('hidden');
         }
     }
 
-    function saveCurrentGame() {
-        const gameState = { players, rounds };
-        localStorage.setItem('tensCurrentGame', JSON.stringify(gameState));
-    }
-
-    function resumeGame() {
-        const saved = JSON.parse(localStorage.getItem('tensCurrentGame'));
-        if (saved) {
-            players = saved.players;
-            rounds = saved.rounds;
-            setupGameUI();
-        }
-    }
-
-    function clearCurrentGame() {
-        localStorage.removeItem('tensCurrentGame');
-        document.getElementById('resume-box').classList.add('hidden');
-    }
+    function saveCurrentGame() { localStorage.setItem('tensCurrentGame', JSON.stringify({ players, rounds })); }
+    function resumeGame() { const saved = JSON.parse(localStorage.getItem('tensCurrentGame')); if (saved) { players = saved.players; rounds = saved.rounds; setupGameUI(); } }
+    function clearCurrentGame() { localStorage.removeItem('tensCurrentGame'); document.getElementById('resume-box').classList.add('hidden'); }
 
     function saveToHistory(name, score) {
         let history = JSON.parse(localStorage.getItem('tensHistory') || "[]");
@@ -199,19 +221,11 @@
     function loadHistory() {
         const list = document.getElementById('history-list');
         let history = JSON.parse(localStorage.getItem('tensHistory') || "[]");
-        list.innerHTML = history.length ? history.map(h => `<li class="history-item"><span><strong>${h.name}</strong> (${h.score})</span> <span style="color:#999">${h.date}</span></li>`).join('') : '<li class="history-item">No games played yet.</li>';
+        list.innerHTML = history.length ? history.map(h => `<li class="history-item"><span><strong>${h.name}</strong> (${h.score})</span> <span style="color:var(--text-sub)">${h.date}</span></li>`).join('') : '<li class="history-item">No games yet.</li>';
     }
 
-    function toggleHistory() {
-        document.getElementById('history-section').classList.toggle('hidden');
-    }
-
-    function confirmReset() {
-        if (confirm("Reset current game? This cannot be undone.")) {
-            localStorage.removeItem('tensCurrentGame');
-            location.reload();
-        }
-    }
+    function toggleHistory() { document.getElementById('history-section').classList.toggle('hidden'); }
+    function confirmReset() { if (confirm("Reset current game?")) { localStorage.removeItem('tensCurrentGame'); location.reload(); } }
 </script>
 </body>
 </html>
